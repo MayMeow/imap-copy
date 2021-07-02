@@ -1,0 +1,17 @@
+{
+    "name": "root/imap-copy",
+    "autoload": {
+        "psr-4": {
+            "MayMeow\\IMAP\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Emma",
+            "email": "emma@themaymeow.com"
+        }
+    ],
+    "require": {
+        "symfony/console": "^5.3"
+    }
+}
