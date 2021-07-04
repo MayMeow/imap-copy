@@ -5,13 +5,14 @@ namespace MayMeow\IMAP\Command;
 
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 class CopyCommand extends Command
 {
     // the name of the command (the part after "bin/console")
-    protected static $defaultName = 'app:coppy';
+    protected static $defaultName = 'email:copy';
 
     protected function configure(): void
     {
@@ -21,20 +22,36 @@ class CopyCommand extends Command
 
         // the full command description shown when running the command with
         // the "--help" option
-        ->setHelp('This command allow you to coppy emails between accounts');
+        ->setHelp('This command allow you to coppy emails between accounts')
+
+        ->addOption('server_a', null, InputOption::VALUE_REQUIRED, 'Source server')
+        ->addOption('server_b', null, InputOption::VALUE_OPTIONAL, 'Destination Server, if not userd, serverA is Used')
+        ->addOption('user_a', null, InputOption::VALUE_REQUIRED, 'User on source server')
+        ->addOption('password_a', null, InputOption::VALUE_REQUIRED, 'Password on source server')
+        ->addOption('user_b', null, InputOption::VALUE_REQUIRED, 'User on destination server')
+        ->addOption('password_b', null, InputOption::VALUE_REQUIRED, 'Password on destination server');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        // options
         $io = new SymfonyStyle($input, $output);
         
-        $sourceHost = "imap.migadu.com";
-        $destinationHost = "imap.migadu.com";
+        $sourceHost = $input->getOption('server_a');
+        if($input->getOption('server_b') == null) {
+            $destinationHost = $sourceHost;
+        } else {
+            $destinationHost = $input->getOption('server_b');
+        }
+
+        $io->info($input->getOption('password_a'), $input->getOption('password_a'));
+
         // Source Server
-        $sourceServer = new \MayMeow\IMAP\MailServer($sourceHost, 'emma@maymeowapp.com', 'PASS', 993, true);
+        $sourceServer = new \MayMeow\IMAP\MailServer($sourceHost, $input->getOption('user_a'), $input->getOption('password_a'), 993, true);
         $sourceStream = $sourceServer->getStream();
+
         // Destination server
-        $destinationServer = new \MayMeow\IMAP\MailServer($destinationHost, 'emma-dva@maymeowapp.com', 'PASS', 993, true);
+        $destinationServer = new \MayMeow\IMAP\MailServer($destinationHost, $input->getOption('user_b'), $input->getOption('password_b'), 993, true);
         $destinationStream = $destinationServer->getStream();
 
         if ($sourceStream && $destinationStream) {
