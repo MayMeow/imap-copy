@@ -85,4 +85,14 @@ class MailServer
 
         return false;
     }
+
+    public function append(string $mailbox, string $message)
+    {
+        return imap_append($this->getStream($mailbox), $this->_getServerName() . $mailbox, $message);
+    }
+
+    public function isSeen($mailbox, string $sequence, bool $default = true)
+    {
+        return imap_setflag_full($this->getStream($mailbox), $sequence, "\\Seen");
+    }
 }

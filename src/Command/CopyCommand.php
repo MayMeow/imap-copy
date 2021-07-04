@@ -3,6 +3,7 @@ declare(strict_types = 1);
 
 namespace MayMeow\IMAP\Command;
 
+use MayMeow\IMAP\MailBox;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -44,8 +45,6 @@ class CopyCommand extends Command
             $destinationHost = $input->getOption('server_b');
         }
 
-        $io->info($input->getOption('password_a'), $input->getOption('password_a'));
-
         // Source Server
         $sourceServer = new \MayMeow\IMAP\MailServer($sourceHost, $input->getOption('user_a'), $input->getOption('password_a'), 993, true);
         $sourceStream = $sourceServer->getStream();
@@ -55,8 +54,13 @@ class CopyCommand extends Command
         $destinationStream = $destinationServer->getStream();
 
         if ($sourceStream && $destinationStream) {
-            $list = $sourceServer->getMailboxList($sourceStream);
-            $destinationList = $destinationServer->getMailboxList($destinationStream);
+            $smbox = new MailBox($sourceServer);
+            $dmbox = new MailBox($destinationServer);
+
+            //$list = $sourceServer->getMailboxList($sourceStream);
+            $list = $smbox->getList();
+            //$destinationList = $destinationServer->getMailboxList($destinationStream);
+            $destinationList = $dmbox->getList();
         
             if (is_array($list)) {
                 foreach($list as $mailbox) {
@@ -66,50 +70,47 @@ class CopyCommand extends Command
                     //var_dump($mailbox);
         
                     // create same folders if they are not on destination server
-                    $sourceMailbox = $sourceServer->getStream($mailbox);
+                    //$sourceMailbox = $sourceServer->getStream($mailbox);
+                    $sourceMailbox = $smbox->getMailbox($mailbox);
         
-                    if(!array_search($destinationServer->getServerName() . $mailbox, $destinationList)) {
+                    if($mailbox != "" && !array_search($destinationServer->getServerName() . $mailbox, $destinationList)) {
                         $ds = $destinationServer->getServerName();
-                        $io->caution("Creating mailbox $mailbox on $ds \n");
+                        $io->caution("Creating new mailbox $mailbox on $ds");
         
                         $destinationServer->createMailbox($destinationStream, $mailbox);
                     }
         
                     // open destination mailbox
-                    $destinationmailbox = $destinationServer->getStream($mailbox);
+                    //$destinationmailbox = $destinationServer->getStream($mailbox);
+                    $destinationmailbox = $dmbox->getMailbox($mailbox);
         
                     if ($destinationmailbox) {
                         $headers = $sourceServer->getMailHeaders($sourceServer->getStream($mailbox));
                         $total = count($headers);
                         $n = 1;
                         if ($total) {
-                            $io->info("Total $total message in $mailbox");
+                            $io->text("Total $total message in $mailbox");
                             $io->progressStart($total);
 
                             // IF there are some messages copy them
                             if($headers) {
-                                //$io->info("Copying $n of $total ...");
+                              
                                 foreach ($headers as $key => $thisHeaders) {
-                                    //echo "Copying $n of $total ... \n";
                                     $header = imap_headerinfo($sourceMailbox, $key+1);
-                                    //var_dump($header);
                                     $is_unseen = $header->Unseen;
-                                    //echo "is_unseen = $is_unseen \n";
             
                                     $messageHeader = imap_fetchheader($sourceMailbox, $key+1);
                                     $body = imap_body($sourceMailbox, $key+1);
             
-                                    if (imap_append($destinationmailbox,$destinationServer->getServerName() . $mailbox,$messageHeader."\r\n".$body)) {
-                                        //echo "OK \n";
-                                        //$io->info("OK");
+                                    //if (imap_append($destinationmailbox,$destinationServer->getServerName() . $mailbox,$messageHeader."\r\n".$body)) {
+                                    if ($destinationServer->append($mailbox, $messageHeader."\r\n".$body)) {
             
                                         if ($is_unseen != "U") {
                                             $sequence = $key+1;
                                             imap_setflag_full($destinationmailbox, (string)$sequence, "\\Seen");
                                         }
                                     } else {
-                                        //echo "Error \n";
-                                        //$io->info("Error");
+                                        $io->error("Error");
                                     }
                                     $io->progressAdvance();
                                     $n++;
@@ -118,7 +119,7 @@ class CopyCommand extends Command
                             }
                             
                         } else {
-                            $io->info("Skipped $mailbox");
+                            $io->text("Skipped $mailbox");
                         }
                     }
                     imap_close($destinationmailbox);
@@ -130,6 +131,8 @@ class CopyCommand extends Command
         
         imap_close($sourceStream);
         imap_close($destinationStream);
+
+        $io->info('Everything is DONE');
 
         return Command::SUCCESS;
     }
